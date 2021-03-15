@@ -1,0 +1,94 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '4.0.2'
+}
+
+ext {
+    kotlinVersion = '1.4.10'
+}
+
+dependencies {
+    compileOnly 'org.sonarsource.sonarqube:sonar-plugin-api'
+    compile 'org.sonarsource.analyzer-commons:sonar-analyzer-commons'
+    compile 'org.sonarsource.analyzer-commons:sonar-xml-parsing'
+    compile "org.jetbrains.kotlin:kotlin-compiler-embeddable:${kotlinVersion}"
+    compile "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}"
+    compile 'com.fasterxml.staxmate:staxmate:2.3.1'
+    compile 'com.github.cretz.kastree:kastree-ast-jvm:0.4.0'
+    compile 'com.github.cretz.kastree:kastree-ast-psi:0.4.0'
+    testCompile 'junit:junit'
+    testCompile 'org.assertj:assertj-core'
+    testCompile 'org.mockito:mockito-core'
+    testCompile 'io.github.classgraph:classgraph'
+}
+
+tasks.withType(JavaCompile) {
+    // Prevent warning: Gradle 5.0 will ignore annotation processors
+    options.compilerArgs += [ "-proc:none" ]
+}
+
+jar {
+    manifest {
+        def displayVersion = (project.buildNumber == null ? version : version.substring(0, version.lastIndexOf('.')) + " (build ${project.buildNumber})")
+        def buildDate = new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        attributes(
+                'Build-Time': buildDate,
+                'Implementation-Build': 'git rev-parse HEAD'.execute().text.trim(),
+                'Plugin-BuildDate': buildDate,
+                'Plugin-ChildFirstClassLoader': 'false',
+                'Plugin-Class': 'org.sonarsource.kotlin.plugin.KotlinPlugin',
+                'Plugin-Description': 'Code Analyzer for Kotlin',
+                'Plugin-Developers': 'SonarSource Team',
+                'Plugin-Display-Version': displayVersion,
+                'Plugin-Homepage': 'http://redirect.sonarsource.com/plugins/kotlin.html',
+                'Plugin-IssueTrackerUrl': 'https://jira.sonarsource.com/browse/SONARSLANG',
+                'Plugin-Key': 'kotlin',
+                'Plugin-License': 'GNU LGPL 3',
+                'Plugin-Name': 'Kotlin Code Quality and Security',
+                'Plugin-Organization': 'SonarSource',
+                'Plugin-OrganizationUrl': 'http://www.sonarsource.com',
+                'Plugin-SourcesUrl': 'https://github.com/SonarSource/slang',
+                'Plugin-Version': version,
+                'Sonar-Version': '6.7',
+                'SonarLint-Supported': 'true',
+                'Version': "${version}",
+        )
+    }
+}
+
+shadowJar {
+    minimize { }
+    exclude 'kotlin/comparisons/**'
+    exclude 'kotlin/scripts/**'
+    exclude 'org/jetbrains/kotlin/org/jdom/**'
+    exclude 'org/jetbrains/kotlin/com/intellij/icons/**'
+    exclude 'org/jetbrains/kotlin/com/intellij/lang/jvm/**'
+    exclude 'org/jetbrains/kotlin/com/intellij/ui/**'
+    exclude 'org/jetbrains/kotlin/com/intellij/util/ui/**'
+    exclude 'org/jetbrains/kotlin/com/intellij/util/xmlb/**'
+    exclude 'org/jetbrains/kotlin/builtins/**'
+    exclude 'org/jetbrains/kotlin/descriptors/**'
+    exclude 'org/jetbrains/kotlin/renderer/**'
+    exclude 'org/jetbrains/kotlin/resolve/**'
+    exclude 'org/jetbrains/kotlin/storage/**'
+    exclude 'org/jetbrains/kotlin/types/**'
+    exclude 'org/jetbrains/org/**'
+    doLast {
+        enforceJarSizeAndCheckContent(new File(libsDir, shadowJar.archiveName), 8_000_000L, 8_500_000L)
+    }
+}
+
+artifacts {
+    archives shadowJar
+}
+
+artifactoryPublish.skip = false
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact source: shadowJar, classifier: null
+            artifact sourcesJar
+            artifact javadocJar
+        }
+    }
+}
